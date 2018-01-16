@@ -6,7 +6,7 @@
 
 .PHONY: update clean build build-all run package deploy test authors dist
 
-export GOPATH := ${PWD}/vendor:${PWD}
+export GOPATH := ${PWD}/vendor
 export GOBIN := ${PWD}/vendor/bin
 
 
