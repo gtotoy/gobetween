@@ -29,6 +29,7 @@ func init() {
 	typeRegistry["weight"] = reflect.TypeOf(WeightBalancer{})
 	typeRegistry["iphash"] = reflect.TypeOf(IphashBalancer{})
 	typeRegistry["leastbandwidth"] = reflect.TypeOf(LeastbandwidthBalancer{})
+	typeRegistry["pkgcache"] = reflect.TypeOf(PkgcacheBalancer{})
 }
 
 /**
