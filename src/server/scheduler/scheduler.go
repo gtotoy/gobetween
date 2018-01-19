@@ -9,6 +9,7 @@ package scheduler
 import (
 	"time"
 
+	"../../balance"
 	"../../core"
 	"../../discovery"
 	"../../healthcheck"
@@ -48,6 +49,7 @@ type Op struct {
 type ElectRequest struct {
 	Context  core.Context
 	Response chan core.Backend
+	Pkgs     []string
 	Err      chan error
 }
 
@@ -262,6 +264,18 @@ func (this *Scheduler) HandleBackendElect(req ElectRequest) {
 		backends = append(backends, b)
 	}
 
+	{ // Set ReqPkgs when concrete balancer is PkgcacheBalancer
+		// @Fix(Gus): Hack to not change Elect signature.
+		// Maybe passing complete req and not just the context
+		defer func() {
+			if r := recover(); r != nil {
+				// Just continue if this.Balancer is not PkgcacheBalancer
+			}
+		}()
+
+		bal := this.Balancer.(*balance.PkgcacheBalancer)
+		bal.ReqPkgs = req.Pkgs
+	}
 	// Elect backend
 	backend, err := this.Balancer.Elect(req.Context, backends)
 	if err != nil {
@@ -321,7 +335,38 @@ func (this *Scheduler) Stop() {
  * Take elect backend for proxying
  */
 func (this *Scheduler) TakeBackend(context core.Context) (*core.Backend, error) {
-	r := ElectRequest{context, make(chan core.Backend), make(chan error)}
+	reqPkgs := []string{}
+	// @TODO(Gus): Get pkgs from lambda imports
+	{ // Ask reqPkgs to a backend
+		// Filter only live backends
+
+		defer func() {
+			if r := recover(); r != nil {
+				// Just continue if this.Balancer is not PkgcacheBalancer
+			}
+		}()
+
+		bal := this.Balancer.(*balance.PkgcacheBalancer)
+
+		var backends []*core.Backend
+		for _, b := range this.backendsList {
+
+			if !b.Stats.Live {
+				continue
+			}
+
+			backends = append(backends, b)
+		}
+		backend := backends[0] // @FIX(Gus): Handle errors
+
+		{ // @TODO(Gus): Ask backend about required packages and fill reqPkgs var
+			// @REMOVE(Gus): Make compiler happy
+			backend.Weight++
+			backend.Weight--
+		}
+		bal.ReqPkgs = reqPkgs
+	}
+	r := ElectRequest{context, make(chan core.Backend), reqPkgs, make(chan error)}
 	this.elect <- r
 	select {
 	case err := <-r.Err:

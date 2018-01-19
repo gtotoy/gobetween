@@ -16,6 +16,8 @@ import (
  * Pkgcache balancer
  */
 type PkgcacheBalancer struct {
+	/* Packages required by Lambda Function */
+	ReqPkgs []string
 
 	/* Current backend position */
 	current int
