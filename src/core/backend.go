@@ -20,6 +20,7 @@ type Backend struct {
 	Weight   int          `json:"weight"`
 	Sni      string       `json:"sni,omitempty"`
 	Stats    BackendStats `json:"stats"`
+	Load     int          // @TODO(Gus): Ask load (worker queue length) via http requests inside scheduler's loop
 }
 
 /**

@@ -8,6 +8,7 @@ package balance
 
 import (
 	"errors"
+	"hash/fnv"
 
 	"../core"
 )
@@ -17,10 +18,20 @@ import (
  */
 type PkgcacheBalancer struct {
 	/* Packages required by Lambda Function */
-	ReqPkgs []string
+	ReqPkgs   []string
+	Threshold int
+}
 
-	/* Current backend position */
-	current int
+func h1(s string) uint32 {
+	hf := fnv.New32()
+	hf.Write([]byte(s))
+	return hf.Sum32()
+}
+
+func h2(s string) uint32 {
+	hf := fnv.New32a()
+	hf.Write([]byte(s))
+	return hf.Sum32()
 }
 
 /**
@@ -32,12 +43,24 @@ func (b *PkgcacheBalancer) Elect(context core.Context, backends []*core.Backend)
 		return nil, errors.New("Can't elect backend, Backends empty")
 	}
 
-	if b.current >= len(backends) {
-		b.current = 0
+	largestPkg := "" // @TODO(Gus): Calculate it using b.ReqPkgs
+	targetIndex1 := h1(largestPkg)%uint32(len(backends)) + 1
+	targetIndex2 := h2(largestPkg)%uint32(len(backends)) + 1
+
+	targetIndex := targetIndex2
+	if backends[targetIndex1].Load < backends[targetIndex2].Load {
+		targetIndex = targetIndex1
 	}
 
-	backend := backends[b.current]
-	b.current += 1
+	if backends[targetIndex].Load > b.Threshold { // Find backend with min Load
+		for i, e := range backends {
+			if e.Load < backends[targetIndex].Load {
+				targetIndex = uint32(i)
+			}
+		}
+	}
+
+	backend := backends[targetIndex]
 
 	return backend, nil
 }
